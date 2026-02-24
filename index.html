@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>STL Viewer</title>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
+
+<style>
+body{margin:0;background:#0f172a;overflow:hidden;}
+#fileInput{
+position:absolute;
+top:10px;
+left:10px;
+z-index:10;
+background:white;
+padding:6px;
+border-radius:6px;
+}
+</style>
+</head>
+
+<body>
+
+<input type="file" id="fileInput" accept=".stl">
+
+<script>
+
+const scene=new THREE.Scene();
+const camera=new THREE.PerspectiveCamera(60,window.innerWidth/window.innerHeight,0.1,10000);
+camera.position.set(0,80,160);
+
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(window.innerWidth,window.innerHeight);
+document.body.appendChild(renderer.domElement);
+
+window.addEventListener('resize',()=>{
+renderer.setSize(window.innerWidth,window.innerHeight);
+camera.aspect=window.innerWidth/window.innerHeight;
+camera.updateProjectionMatrix();
+});
+
+// light
+scene.add(new THREE.HemisphereLight(0xffffff,0x444444,1.3));
+const dir=new THREE.DirectionalLight(0xffffff,0.9);
+dir.position.set(100,200,100);
+scene.add(dir);
+
+// grid
+scene.add(new THREE.GridHelper(300,30));
+
+// controls
+const controls=new THREE.OrbitControls(camera,renderer.domElement);
+controls.autoRotate=true;
+controls.autoRotateSpeed=1.2;
+
+const loader=new THREE.STLLoader();
+let mesh;
+
+document.getElementById("fileInput").addEventListener("change",(e)=>{
+const file=e.target.files[0];
+const reader=new FileReader();
+
+reader.onload=function(event){
+
+const geometry=loader.parse(event.target.result);
+geometry.computeBoundingBox();
+const size=geometry.boundingBox.getSize(new THREE.Vector3());
+
+// volume
+let volume=0;
+const pos=geometry.attributes.position.array;
+for(let i=0;i<pos.length;i+=9){
+const ax=pos[i], ay=pos[i+1], az=pos[i+2];
+const bx=pos[i+3], by=pos[i+4], bz=pos[i+5];
+const cx=pos[i+6], cy=pos[i+7], cz=pos[i+8];
+volume+=ax*(by*cz-bz*cy)-ay*(bx*cz-bz*cx)+az*(bx*cy-by*cx);
+}
+volume=Math.abs(volume/6);
+
+geometry.center();
+
+const material=new THREE.MeshStandardMaterial({color:0x3b82f6});
+
+if(mesh)scene.remove(mesh);
+mesh=new THREE.Mesh(geometry,material);
+scene.add(mesh);
+
+// camera fit
+const maxDim=Math.max(size.x,size.y,size.z);
+camera.position.set(0,maxDim,maxDim*2);
+controls.target.set(0,0,0);
+controls.update();
+
+// send to wix
+window.parent.postMessage({
+volume:volume,
+x:size.x,
+y:size.y,
+z:size.z,
+fileName:file.name
+},"*");
+
+};
+
+reader.readAsArrayBuffer(file);
+});
+
+function animate(){
+requestAnimationFrame(animate);
+controls.update();
+renderer.render(scene,camera);
+}
+animate();
+
+</script>
+</body>
+</html>
