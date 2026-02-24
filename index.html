@@ -95,13 +95,21 @@ controls.target.set(0,0,0);
 controls.update();
 
 // send to wix
-window.top.postMessage({
-volume:volume,
-x:size.x,
-y:size.y,
-z:size.z,
-fileName:file.name
-},"https://niketanm09.wixstudio.com");
+fetch("https://niketanm09.wixstudio.com/_functions/save_stl", {
+method: "POST",
+headers: {
+"Content-Type": "application/json"
+},
+body: JSON.stringify({
+volume: volume,
+x: size.x,
+y: size.y,
+z: size.z,
+fileName: file.name
+})
+})
+.then(res => console.log("Sent to Wix"))
+.catch(err => console.error(err));
 
 };
 
